@@ -14,22 +14,29 @@ export async function GET(request: NextRequest) {
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value;
+            const value = cookieStore.get(name)?.value;
+            return value;
           },
           set(name: string, value: string, options: any) {
-            cookieStore.set(name, value, options);
+            try {
+              cookieStore.set(name, value, options);
+            } catch (error) {
+              // Handle cookie setting errors
+            }
           },
           remove(name: string, options: any) {
-            cookieStore.delete(name);
+            try {
+              cookieStore.delete(name);
+            } catch (error) {
+              // Handle cookie deletion errors
+            }
           },
         },
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return NextResponse.redirect(`${requestUrl.origin}/agent`);
-    }
+    await supabase.auth.exchangeCodeForSession(code);
+    return NextResponse.redirect(`${requestUrl.origin}/agent`);
   }
 
   return NextResponse.redirect(`${requestUrl.origin}/auth-error`);
