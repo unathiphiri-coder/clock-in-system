@@ -44,7 +44,7 @@ export default function AgentPage() {
         const { error: updateError } = await supabase
           .from('clock_events')
           .update({ clock_out_time: now.toISOString() })
-          .eq('agent_id', user.id)
+          .eq('user_id', user.id)
           .eq('shift_date', today)
           .is('clock_out_time', null);
 
@@ -58,6 +58,7 @@ export default function AgentPage() {
         const { error: insertError } = await supabase
           .from('clock_events')
           .insert([{
+            user_id: user.id,
             agent_id: user.id,
             clock_in_time: now.toISOString(),
             shift_date: today,
