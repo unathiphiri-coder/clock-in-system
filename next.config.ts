@@ -1,10 +1,19 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
+  experimental: {
+    turbopack: false,
   },
-  turbopack: {},
+  webpackDevMiddleware: {
+    watchOptions: {
+      poll: false,
+      ignored: /node_modules/,
+    },
+  },
+  onDemandEntries: {
+    maxInactiveAge: 60 * 60 * 1000,
+    pagesBufferLength: 5,
+  },
 };
 
 export default nextConfig;
