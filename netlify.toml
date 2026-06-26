@@ -1,6 +1,18 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = ".next/standalone"
+  functions = ".next/functions"
 
 [build.environment]
   NODE_VERSION = "20"
+  SKIP_ENV_VALIDATION = "true"
+
+[[redirects]]
+  from = "/"
+  to = "/.netlify/functions/___next"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/___next"
+  status = 200
