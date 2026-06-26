@@ -31,34 +31,45 @@ export default function AgentPage() {
   }, [router]);
 
   const handleClockToggle = async () => {
-    console.log('Clock toggle clicked!');
     setClocking(true);
     setError('');
     
     const supabase = createClient();
-    const now = new Date().toISOString();
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
 
     try {
-      const newStatus = clockStatus === 'CLOCKED_IN' ? 'CLOCK_OUT' : 'CLOCK_IN';
-      console.log('Inserting:', { agent_id: user.id, event_type: newStatus, timestamp: now });
-      
-      const { data, error: insertError } = await supabase.from('clock_events').insert({
-        agent_id: user.id,
-        event_type: newStatus,
-        timestamp: now,
-      });
+      if (clockStatus === 'CLOCKED_IN') {
+        // Clock out: update the existing record
+        const { error: updateError } = await supabase
+          .from('clock_events')
+          .update({ clock_out_time: now.toISOString() })
+          .eq('agent_id', user.id)
+          .eq('shift_date', today)
+          .is('clock_out_time', null);
 
-      console.log('Response:', { data, insertError });
-
-      if (insertError) {
-        setError(`Error: ${insertError.message}`);
-        console.error('Insert error:', insertError);
+        if (updateError) {
+          setError(`Error: ${updateError.message}`);
+        } else {
+          setClockStatus('NOT_CLOCKED_IN');
+        }
       } else {
-        setClockStatus(newStatus === 'CLOCK_IN' ? 'CLOCKED_IN' : 'NOT_CLOCKED_IN');
-        console.log('Clock status updated to:', newStatus === 'CLOCK_IN' ? 'CLOCKED_IN' : 'NOT_CLOCKED_IN');
+        // Clock in: insert new record
+        const { error: insertError } = await supabase
+          .from('clock_events')
+          .insert([{
+            agent_id: user.id,
+            clock_in_time: now.toISOString(),
+            shift_date: today,
+          }]);
+
+        if (insertError) {
+          setError(`Error: ${insertError.message}`);
+        } else {
+          setClockStatus('CLOCKED_IN');
+        }
       }
     } catch (err) {
-      console.error('Catch error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     }
     setClocking(false);
