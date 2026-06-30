@@ -6,9 +6,28 @@ const supabase = createClient();
 export async function clockIn() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
+  console.log('Auth user:', user.id, user.email);
   
-  const { data: agent } = await supabase.from('agents').select('*').eq('user_id', user.id).single();
-  if (!agent) throw new Error('Agent not found');
+  console.log('Attempting to query agents table...');
+  const agentResult = await supabase
+    .from('agents')
+    .select('*')
+    .eq('user_id', user.id);
+  
+  console.log('Agent query result:', agentResult);
+  
+  if (agentResult.error) {
+    console.error('Agent query error:', agentResult.error);
+    throw agentResult.error;
+  }
+  
+  if (!agentResult.data || agentResult.data.length === 0) {
+    throw new Error('Agent not found');
+  }
+  
+  const agent = agentResult.data[0];
+  console.log('Agent:', agent);
+  console.log('Agent ID:', agent.id);
   
   const { data: clockEvent, error } = await supabase.from('clock_events').insert({
     agent_id: agent.id,

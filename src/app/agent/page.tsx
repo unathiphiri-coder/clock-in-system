@@ -34,41 +34,29 @@ export default function AgentPage() {
     setClocking(true);
     setError('');
     
-    const supabase = createClient();
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-
     try {
       if (clockStatus === 'CLOCKED_IN') {
-        // Clock out: update the existing record
-        const { error: updateError } = await supabase
+        // Get the current clock event and clock out
+        const supabase = createClient();
+        const today = new Date().toISOString().split('T')[0];
+        const { data: clockEvents } = await supabase
           .from('clock_events')
-          .update({ clock_out_time: now.toISOString() })
+          .select('id')
           .eq('user_id', user.id)
           .eq('shift_date', today)
-          .is('clock_out_time', null);
-
-        if (updateError) {
-          setError(`Error: ${updateError.message}`);
-        } else {
+          .is('clock_out_time', null)
+          .limit(1);
+        
+        if (clockEvents && clockEvents.length > 0) {
+          const { clockOut } = await import('@/lib/clock-service');
+          await clockOut(clockEvents[0].id);
           setClockStatus('NOT_CLOCKED_IN');
         }
       } else {
-        // Clock in: insert new record
-        const { error: insertError } = await supabase
-          .from('clock_events')
-          .insert([{
-            user_id: user.id,
-            agent_id: user.id,
-            clock_in_time: now.toISOString(),
-            shift_date: today,
-          }]);
-
-        if (insertError) {
-          setError(`Error: ${insertError.message}`);
-        } else {
-          setClockStatus('CLOCKED_IN');
-        }
+        // Clock in using the proper function
+        const { clockIn } = await import('@/lib/clock-service');
+        await clockIn();
+        setClockStatus('CLOCKED_IN');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');

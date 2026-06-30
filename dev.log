@@ -1,0 +1,16 @@
+
+> clock-in-system@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.0.0.40:3000
+- Environments: .env.local
+✓ Ready in 403ms
+⚠ Invalid next.config.ts options detected: 
+⚠     Unrecognized key(s) in object: 'turbopack' at "experimental"
+⚠     Unrecognized key(s) in object: 'webpackDevMiddleware'
+⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+- Experiments (use with caution):
+  ? turbopack (invalid experimental key)
+
