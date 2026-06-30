@@ -1,43 +1,19 @@
-import { createServerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get('code');
+  const { searchParams } = new URL(request.url);
+  const code = searchParams.get('code');
 
   if (code) {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            const value = cookieStore.get(name)?.value;
-            return value;
-          },
-          set(name: string, value: string, options: any) {
-            try {
-              cookieStore.set(name, value, options);
-            } catch (error) {
-              // Handle cookie setting errors
-            }
-          },
-          remove(name: string, options: any) {
-            try {
-              cookieStore.delete(name);
-            } catch (error) {
-              // Handle cookie deletion errors
-            }
-          },
-        },
-      }
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
     await supabase.auth.exchangeCodeForSession(code);
-    return NextResponse.redirect(`${requestUrl.origin}/agent`);
   }
 
-  return NextResponse.redirect(`${requestUrl.origin}/auth-error`);
+  // URL to redirect to after sign in process completes
+  return NextResponse.redirect(new URL('/', request.url));
 }
