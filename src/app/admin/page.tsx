@@ -33,27 +33,19 @@ export default function AdminPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // TODO: Implement role-based redirect
-    // Current blocker: Supabase query to user_roles returns no data even though
-    // data exists in database. Need to debug RLS policies and anon key permissions.
-    // For now, allowing all authenticated users to view admin dashboard.
-    
     const getUser = async () => {
       try {
         const supabase = createClient();
         const { data: { user: authUser } } = await supabase.auth.getUser();
-        
         if (!authUser) {
           router.push('/login');
           return;
         }
-
         setUser(authUser);
       } catch (err) {
         console.error('Error getting user:', err);
       }
     };
-
     getUser();
   }, []);
 
@@ -68,9 +60,7 @@ export default function AdminPage() {
       const supabase = createClient();
 
       const { data: allAgents, error: _agentsError } = await supabase.from('agents').select('*');
-      if (_agentsError) {
-        console.error('Agents error:', _agentsError);
-      }
+      if (_agentsError) console.error('Agents error:', _agentsError);
       setAgents(allAgents || []);
 
       const { data: events, error: _eventsError } = await supabase
@@ -79,12 +69,9 @@ export default function AdminPage() {
         .eq('shift_date', selectedDate)
         .order('clock_in_time', { ascending: false });
       
-      if (_eventsError) {
-        console.error('Events error:', _eventsError);
-      }
+      if (_eventsError) console.error('Events error:', _eventsError);
       setClockEvents(events || []);
     } catch (err) {
-      console.error('Error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
@@ -122,32 +109,10 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '20px',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-    }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '30px'
-      }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h1 style={{ margin: 0 }}>Admin Dashboard</h1>
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: '10px 20px',
-            background: '#ff4444',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 'bold'
-          }}
-        >
+        <button onClick={handleLogout} style={{ padding: '10px 20px', background: '#ff4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
           Logout
         </button>
       </div>
@@ -157,49 +122,23 @@ export default function AdminPage() {
       </div>
 
       {error && (
-        <div style={{
-          background: '#ffebee',
-          color: '#c62828',
-          padding: '12px',
-          borderRadius: '4px',
-          marginBottom: '20px'
-        }}>
+        <div style={{ background: '#ffebee', color: '#c62828', padding: '12px', borderRadius: '4px', marginBottom: '20px' }}>
           Error: {error}
         </div>
       )}
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '20px',
-        marginBottom: '30px'
-      }}>
-        <div style={{
-          background: '#f5f5f5',
-          padding: '20px',
-          borderRadius: '8px',
-          textAlign: 'center'
-        }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+        <div style={{ background: '#f5f5f5', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <div style={{ color: '#666', fontSize: '14px', marginBottom: '10px' }}>Total Agents</div>
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#333' }}>{totalAgents}</div>
         </div>
 
-        <div style={{
-          background: '#e8f5e9',
-          padding: '20px',
-          borderRadius: '8px',
-          textAlign: 'center'
-        }}>
+        <div style={{ background: '#e8f5e9', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <div style={{ color: '#2e7d32', fontSize: '14px', marginBottom: '10px' }}>Currently Clocked In</div>
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#2e7d32' }}>{clockedInCount}</div>
         </div>
 
-        <div style={{
-          background: '#fff3e0',
-          padding: '20px',
-          borderRadius: '8px',
-          textAlign: 'center'
-        }}>
+        <div style={{ background: '#fff3e0', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <div style={{ color: '#e65100', fontSize: '14px', marginBottom: '10px' }}>Hours Logged Today</div>
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#e65100' }}>{totalHours.toFixed(1)}h</div>
         </div>
@@ -207,17 +146,31 @@ export default function AdminPage() {
 
       <div style={{ marginBottom: '20px' }}>
         <label style={{ marginRight: '10px', fontWeight: 'bold' }}>Date: </label>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          style={{
-            padding: '8px',
-            borderRadius: '4px',
-            border: '1px solid #ddd',
-            fontSize: '14px'
-          }}
-        />
+        <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }} />
       </div>
 
-      <div style={{
+      <div style={{ overflowX: 'auto', background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <thead>
+            <tr style={{ background: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Agent</th>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Clock In</th>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Clock Out</th>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            {clockEvents.map((event, index) => (
+              <tr key={event.id} style={{ borderBottom: '1px solid #eee', background: index % 2 === 0 ? 'white' : '#fafafa' }}>
+                <td style={{ padding: '12px' }}>{getAgentName(event.agent_id)}</td>
+                <td style={{ padding: '12px' }}>{formatTime(event.clock_in_time)}</td>
+                <td style={{ padding: '12px' }}>{formatTime(event.clock_out_time)}</td>
+                <td style={{ padding: '12px' }}>{formatDuration(event.duration_minutes)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
