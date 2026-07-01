@@ -1,44 +1,10 @@
-'use client';
+Oops! 🙈 My bad — I gave you incomplete code. The old Home component code is still there and causing syntax errors.
+Let me give you the complete, correct src/app/admin/page.tsx file. Replace everything in that file with this:
+typescript'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
-interface User {
-  id: string;
-  email?: string;
-}
-
-interface Agent {
-  id: string;
-  email: string;
-  full_name?: string;
-  expected_hours_per_day?: number;
-  team_name?: string;
-  status?: string;
-}
-
-interface ClockEvent {
-  id: string;
-  agent_id: string;
-  clock_in_time: string;
-  clock_out_time?: string;
-  shift_date: string;
-  duration_minutes?: number;
-}
-
-interface EditingEvent {
-  id: string;
-  clock_in_time: string;
-  clock_out_time: string;
-}
-
-export default function AdminPage() {
-  // ... rest of your admin code
-    router.push('/login');
-  }, [router]);
-
-  return null;
-}
 interface User {
   id: string;
   email?: string;
@@ -115,7 +81,7 @@ export default function AdminPage() {
       const { data: allAgents, error: _agentsError } = await supabase.from('agents').select('*');
       if (_agentsError) console.error('Agents error:', _agentsError);
       setAgents(allAgents || []);
-      const { data: events, error: _eventsError } = await supabase.from('clock_events').select('*').eq('shift_date', selectedDate).order('clock_in_time', { ascending: false });
+      const { data: events, error: _eventsError } = await supabase.from('clock_events').select('*').eq('shift_date', selectedDate);
       if (_eventsError) console.error('Events error:', _eventsError);
       setClockEvents(events || []);
     } catch (err) {
@@ -148,7 +114,7 @@ export default function AdminPage() {
       const agent = agents.find(a => a.id === event.agent_id);
       const agentName = agent?.full_name || agentEmail;
       const duration = event.duration_minutes ? (event.duration_minutes / 60).toFixed(2) : 'Ongoing';
-      csv += `${agentEmail},${agentName},${formatTime(event.clock_in_time)},${formatTime(event.clock_out_time)},${duration},${event.shift_date}\n`;
+      csv += `${agentEmail},${agentName},${formatTime(event.clock_in_time)},${formatTime(event.clock_out_time)},${duration},${selectedDate}\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -185,7 +151,7 @@ export default function AdminPage() {
     setEditingEvent({
       id: event.id,
       clock_in_time: event.clock_in_time ? new Date(event.clock_in_time).toISOString().slice(0, 16) : '',
-      clock_out_time: event.clock_out_time ? new Date(event.clock_out_time).toISOString().slice(0, 16) : ''
+      clock_out_time: event.clock_out_time ? new Date(event.clock_out_time).toISOString().slice(0, 16) : '',
     });
   };
 
@@ -229,17 +195,19 @@ export default function AdminPage() {
   const reportsData = getReportsData();
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px', fontFamily: 'system-ui' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Admin Dashboard</h1>
-        <button onClick={handleLogout} style={{ padding: '10px 20px', background: '#ff4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>Logout</button>
+        <button onClick={handleLogout} style={{ padding: '10px 20px', background: '#ff4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+          Logout
+        </button>
       </div>
       
       <div style={{ marginBottom: '20px', color: '#2e7d32' }}>
         <p>Logged in as: <strong>{user?.email}</strong></p>
       </div>
 
-      {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '12px', borderRadius: '4px', marginBottom: '20px' }}>Error: {error}</div>}
+      {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '12px', borderRadius: '4px', marginBottom: '20px' }}>{error}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
         <div style={{ background: '#f5f5f5', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
@@ -251,18 +219,22 @@ export default function AdminPage() {
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#2e7d32' }}>{clockedInCount}</div>
         </div>
         <div style={{ background: '#fff3e0', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
-          <div style={{ color: '#e65100', fontSize: '14px', marginBottom: '10px' }}>Hours Logged Today</div>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#e65100' }}>{totalHours.toFixed(1)}h</div>
+          <div style={{ color: '#e65100', fontSize: '14px', marginBottom: '10px' }}>Total Hours Today</div>
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#e65100' }}>{totalHours.toFixed(2)}</div>
         </div>
       </div>
 
       <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <div>
           <label style={{ marginRight: '10px', fontWeight: 'bold' }}>Date: </label>
-          <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }} />
+          <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
         </div>
-        <button onClick={handleExportCSV} style={{ padding: '8px 16px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>📥 Export to CSV</button>
-        <button onClick={() => setShowReports(!showReports)} style={{ padding: '8px 16px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>📊 {showReports ? 'Hide' : 'Show'} Reports</button>
+        <button onClick={handleExportCSV} style={{ padding: '8px 16px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+          📥 Export to CSV
+        </button>
+        <button onClick={() => setShowReports(!showReports)} style={{ padding: '8px 16px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+          📊 {showReports ? 'Hide' : 'Show'} Reports
+        </button>
       </div>
 
       {showReports && (
@@ -282,11 +254,11 @@ export default function AdminPage() {
               <tbody>
                 {reportsData.map((stat, index) => {
                   const hoursNum = parseFloat(stat.totalHours);
-                const expectedNum = typeof stat.expectedHours === 'string' ? parseFloat(stat.expectedHours) : stat.expectedHours;
-                  const status = hoursNum >= expectedNum ? '✅ Complete' : `⚠️ ${(expectedNum - hoursNum).toFixed(2)}h short`;
+                  const expectedNum = typeof stat.expectedHours === 'string' ? parseFloat(stat.expectedHours) : stat.expectedHours;
+                  const status = hoursNum >= expectedNum ? '✅ Complete' : `⚠️ ${(expectedNum - hoursNum).toFixed(2)}h remaining`;
                   
                   return (
-                    <tr key={index} style={{ borderBottom: '1px solid #eee', background: index % 2 === 0 ? 'white' : '#fafafa' }}>
+                    <tr key={index} style={{ borderBottom: '1px solid #eee', background: index % 2 === 0 ? '#fafafa' : 'white' }}>
                       <td style={{ padding: '12px' }}>{stat.name}</td>
                       <td style={{ padding: '12px', fontWeight: 'bold', color: '#2e7d32' }}>{stat.totalHours}h</td>
                       <td style={{ padding: '12px' }}>{stat.expectedHours}h</td>
@@ -302,7 +274,7 @@ export default function AdminPage() {
       )}
 
       <h2>Attendance Records - {selectedDate}</h2>
-      <div style={{ overflowX: 'auto', background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+      <div style={{ overflowX: 'auto', background: 'white', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
           <thead>
             <tr style={{ background: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
@@ -310,18 +282,20 @@ export default function AdminPage() {
               <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Clock In</th>
               <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Clock Out</th>
               <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Duration</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Action</th>
+              <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {clockEvents.map((event, index) => (
-              <tr key={event.id} style={{ borderBottom: '1px solid #eee', background: index % 2 === 0 ? 'white' : '#fafafa' }}>
+              <tr key={event.id} style={{ borderBottom: '1px solid #eee', background: index % 2 === 0 ? '#fafafa' : 'white' }}>
                 <td style={{ padding: '12px' }}>{getAgentName(event.agent_id)}</td>
                 <td style={{ padding: '12px' }}>{formatTime(event.clock_in_time)}</td>
                 <td style={{ padding: '12px' }}>{formatTime(event.clock_out_time)}</td>
                 <td style={{ padding: '12px' }}>{formatDuration(event.duration_minutes)}</td>
                 <td style={{ padding: '12px' }}>
-                  <button onClick={() => handleEditClick(event)} style={{ padding: '6px 12px', background: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>✏️ Edit</button>
+                  <button onClick={() => handleEditClick(event)} style={{ padding: '6px 12px', background: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                    ✏️ Edit
+                  </button>
                 </td>
               </tr>
             ))}
@@ -334,16 +308,20 @@ export default function AdminPage() {
           <div style={{ background: 'white', padding: '30px', borderRadius: '8px', maxWidth: '400px', width: '90%' }}>
             <h2 style={{ marginTop: 0 }}>Edit Clock Time</h2>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Clock In Time:</label>
-              <input type="datetime-local" value={editingEvent.clock_in_time} onChange={(e) => setEditingEvent({ ...editingEvent, clock_in_time: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Clock In Time</label>
+              <input type="datetime-local" value={editingEvent.clock_in_time} onChange={(e) => setEditingEvent({ ...editingEvent, clock_in_time: e.target.value })} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
             </div>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Clock Out Time:</label>
-              <input type="datetime-local" value={editingEvent.clock_out_time} onChange={(e) => setEditingEvent({ ...editingEvent, clock_out_time: e.target.value })} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Clock Out Time</label>
+              <input type="datetime-local" value={editingEvent.clock_out_time} onChange={(e) => setEditingEvent({ ...editingEvent, clock_out_time: e.target.value })} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={handleSaveEdit} style={{ flex: 1, padding: '10px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Save</button>
-              <button onClick={() => setEditingEvent(null)} style={{ flex: 1, padding: '10px', background: '#999', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Cancel</button>
+              <button onClick={handleSaveEdit} style={{ flex: 1, padding: '10px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                Save
+              </button>
+              <button onClick={() => setEditingEvent(null)} style={{ flex: 1, padding: '10px', background: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>
