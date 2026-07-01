@@ -1,4 +1,15 @@
-'use client';
+🎉 Feature A: CSV Export ✅ DONE!
+
+Now let's build Feature C: Manual Time Adjustments
+This will add an "Edit" button on each row so admins can correct clock times:
+
+Click Edit → Modal pops up
+Change clock in/out times
+Click Save → Updates database
+Click Cancel → Closes modal
+
+Let me build this now. Here's the updated src/app/admin/page.tsx with edit functionality:
+typescript'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
@@ -16,6 +27,10 @@ export default function AdminPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [exportStart, setExportStart] = useState(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
   const [exportEnd, setExportEnd] = useState(new Date().toISOString().split('T')[0]);
+  const [editingEvent, setEditingEvent] = useState<ClockEvent | null>(null);
+  const [editClockIn, setEditClockIn] = useState('');
+  const [editClockOut, setEditClockOut] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -88,6 +103,35 @@ export default function AdminPage() {
     }
   }
 
+  function openEditModal(event: ClockEvent) {
+    setEditingEvent(event);
+    setEditClockIn(event.clock_in_time || '');
+    setEditClockOut(event.clock_out_time || '');
+  }
+
+  async function saveEdit() {
+    if (!editingEvent) return;
+    try {
+      setEditSaving(true);
+      setError('');
+      const supabase = createClient();
+      
+      const { error: updateError } = await supabase
+        .from('clock_events')
+        .update({ clock_in_time: editClockIn, clock_out_time: editClockOut })
+        .eq('id', editingEvent.id);
+
+      if (updateError) throw updateError;
+      
+      setEditingEvent(null);
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   const totalAgents = agents.length;
   const clockedIn = clockEvents.filter(e => !e.clock_out_time).length;
   const totalHours = clockEvents.reduce((sum, e) => sum + (e.duration_minutes || 0), 0) / 60;
@@ -108,6 +152,7 @@ export default function AdminPage() {
       </div>
       <p style={{ color: '#2e7d32' }}>Logged in as: <strong>{user?.email}</strong></p>
       {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '12px', borderRadius: '4px', marginBottom: '20px' }}>Error: {error}</div>}
+      
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
         <div style={{ background: '#f5f5f5', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <div style={{ color: '#666', fontSize: '14px', marginBottom: '10px' }}>Total Agents</div>
@@ -122,6 +167,7 @@ export default function AdminPage() {
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#e65100' }}>{totalHours.toFixed(1)}h</div>
         </div>
       </div>
+
       <div style={{ background: '#f0f7ff', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '1px solid #2196f3' }}>
         <h3 style={{ marginTop: 0, color: '#1565c0' }}>📥 Export Attendance</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
@@ -130,10 +176,12 @@ export default function AdminPage() {
           <div style={{ display: 'flex', alignItems: 'flex-end' }}><button onClick={exportToCSV} style={{ width: '100%', padding: '8px', background: '#2196f3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>📥 Export CSV</button></div>
         </div>
       </div>
+
       <div style={{ marginBottom: '20px' }}>
         <label style={{ fontWeight: 'bold' }}>Filter by Date: </label>
         <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', marginLeft: '10px' }} />
       </div>
+
       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <thead>
           <tr style={{ background: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
@@ -141,6 +189,7 @@ export default function AdminPage() {
             <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Clock In</th>
             <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Clock Out</th>
             <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Duration</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -150,10 +199,37 @@ export default function AdminPage() {
               <td style={{ padding: '12px' }}>{formatTime(event.clock_in_time)}</td>
               <td style={{ padding: '12px' }}>{formatTime(event.clock_out_time)}</td>
               <td style={{ padding: '12px' }}>{formatDuration(event.duration_minutes)}</td>
+              <td style={{ padding: '12px' }}><button onClick={() => openEditModal(event)} style={{ padding: '6px 12px', background: '#ff9800', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>✏️ Edit</button></td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {editingEvent && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'white', padding: '30px', borderRadius: '8px', maxWidth: '400px', width: '90%', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+            <h2 style={{ marginTop: 0 }}>Edit Clock Times</h2>
+            <p style={{ color: '#666' }}><strong>Agent:</strong> {getAgentName(editingEvent.agent_id)}</p>
+            
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Clock In Time:</label>
+              <input type="datetime-local" value={editClockIn.slice(0, 16)} onChange={(e) => setEditClockIn(e.target.value + ':00')} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Clock Out Time:</label>
+              <input type="datetime-local" value={editClockOut ? editClockOut.slice(0, 16) : ''} onChange={(e) => setEditClockOut(e.target.value + ':00')} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={saveEdit} disabled={editSaving} style={{ flex: 1, padding: '10px', background: '#4caf50', color: 'white', border: 'none', borderRadius: '4px', cursor: editSaving ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: editSaving ? 0.6 : 1 }}>
+                {editSaving ? 'Saving...' : '💾 Save'}
+              </button>
+              <button onClick={() => setEditingEvent(null)} style={{ flex: 1, padding: '10px', background: '#999', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
