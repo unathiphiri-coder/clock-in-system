@@ -12,6 +12,9 @@ interface Agent {
   id: string;
   email: string;
   full_name?: string;
+  expected_hours_per_day?: number;
+  team_name?: string;
+  status?: string;
 }
 
 interface ClockEvent {
