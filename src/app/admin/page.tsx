@@ -1,11 +1,39 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase';
 
-export default function Home() {
-  const router = useRouter();
+interface User {
+  id: string;
+  email?: string;
+}
 
-  useEffect(() => {
+interface Agent {
+  id: string;
+  email: string;
+  full_name?: string;
+  expected_hours_per_day?: number;
+  team_name?: string;
+  status?: string;
+}
+
+interface ClockEvent {
+  id: string;
+  agent_id: string;
+  clock_in_time: string;
+  clock_out_time?: string;
+  shift_date: string;
+  duration_minutes?: number;
+}
+
+interface EditingEvent {
+  id: string;
+  clock_in_time: string;
+  clock_out_time: string;
+}
+
+export default function AdminPage() {
+  // ... rest of your admin code
     router.push('/login');
   }, [router]);
 
