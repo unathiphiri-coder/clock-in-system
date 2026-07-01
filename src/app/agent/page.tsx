@@ -1,5 +1,4 @@
 'use client';
-
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
@@ -14,19 +13,43 @@ export default function AgentPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const supabase = createClient();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (!authUser) {
+          router.push('/login');
+          return;
+        }
 
-      if (!authUser) {
+        // ✅ CHECK ROLE
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role_name')
+          .eq('user_id', authUser.id)
+          .single();
+
+        if (roleError || !roleData) {
+          console.error('Role check error:', roleError);
+          setError('Could not determine user role');
+          setLoading(false);
+          return;
+        }
+
+        if (roleData.role_name === 'admin') {
+          // User is admin - redirect to admin page
+          router.push('/admin');
+          return;
+        }
+
+        setUser(authUser);
+        setClockStatus('NOT_CLOCKED_IN');
+        setLoading(false);
+      } catch (err) {
+        console.error('Auth error:', err);
         router.push('/login');
-        return;
       }
-
-      setUser(authUser);
-      setClockStatus('NOT_CLOCKED_IN');
-      setLoading(false);
     };
-
     checkAuth();
   }, [router]);
 
