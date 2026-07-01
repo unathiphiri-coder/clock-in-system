@@ -1,6 +1,4 @@
-Oops! 🙈 My bad — I gave you incomplete code. The old Home component code is still there and causing syntax errors.
-Let me give you the complete, correct src/app/admin/page.tsx file. Replace everything in that file with this:
-typescript'use client';
+'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
