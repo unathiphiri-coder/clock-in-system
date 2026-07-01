@@ -1,6 +1,4 @@
-Here's the complete enhanced admin page code. Copy this entire file:
-Replace your src/app/admin/page.tsx with this:
-typescript'use client';
+'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
