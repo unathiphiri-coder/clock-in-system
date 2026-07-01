@@ -113,5 +113,4 @@ export default function AdminPage() {
 
   const totalAgents = agents.length;
   const clockedInCount = clockEvents.filter(e => !e.clock_out_time).length;
-  const totalHours = clockEvents.reduce((sum,
 const totalHours = clockEvents.reduce((sum, e) => sum + (e.duration_minutes || 0), 0) / 60;
