@@ -246,7 +246,7 @@ export default function AdminPage() {
               <tbody>
                 {reportsData.map((stat, index) => {
                   const hoursNum = parseFloat(stat.totalHours);
-                  const expectedNum = parseFloat(stat.expectedHours);
+                const expectedNum = typeof stat.expectedHours === 'string' ? parseFloat(stat.expectedHours) : stat.expectedHours;
                   const status = hoursNum >= expectedNum ? '✅ Complete' : `⚠️ ${(expectedNum - hoursNum).toFixed(2)}h short`;
                   
                   return (
