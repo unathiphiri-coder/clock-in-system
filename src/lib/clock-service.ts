@@ -1,5 +1,6 @@
 import { createClient } from './supabase';
 import { ClockStatus, DailyAttendance } from './types';
+import { getSASTDateString } from './timezone';
 
 const supabase = createClient();
 
@@ -33,7 +34,7 @@ export async function clockIn() {
     agent_id: agent.id,
     user_id: user.id,
     clock_in_time: new Date().toISOString(),
-    shift_date: new Date().toISOString().split('T')[0],
+    shift_date: getSASTDateString(),
   }).select().single();
   
   if (error) throw error;
@@ -59,7 +60,7 @@ export async function getCurrentClockStatus(): Promise<ClockStatus> {
   const { data: agent } = await supabase.from('agents').select('*').eq('user_id', user.id).single();
   if (!agent) throw new Error('Agent not found');
   
-  const today = new Date().toISOString().split('T')[0];
+  const today = getSASTDateString();
   const { data: clockEvents } = await supabase.from('clock_events').select('*').eq('agent_id', agent.id).eq('shift_date', today).order('clock_in_time', { ascending: false }).limit(1);
   
   if (!clockEvents?.length) {
@@ -79,7 +80,7 @@ export async function getTodayAttendance(): Promise<DailyAttendance | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
   
-  const today = new Date().toISOString().split('T')[0];
+  const today = getSASTDateString();
   const { data } = await supabase.from('daily_attendance_summary').select('*').eq('user_id', user.id).eq('attendance_date', today).single();
   return data;
 }
@@ -93,6 +94,6 @@ export async function getAttendanceHistory(startDate: string, endDate: string) {
 }
 
 export async function getAllAttendanceToday(): Promise<DailyAttendance[]> {
-  const { data } = await supabase.from('daily_attendance_summary').select('*').eq('attendance_date', new Date().toISOString().split('T')[0]).order('team_name', { ascending: true });
+  const { data } = await supabase.from('daily_attendance_summary').select('*').eq('attendance_date', getSASTDateString()).order('team_name', { ascending: true });
   return data || [];
 }
