@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
+import { getSASTDateString } from '@/lib/timezone';
 
 export default function AgentPage() {
   const [user, setUser] = useState<any>(null);
@@ -61,7 +62,7 @@ export default function AgentPage() {
       if (clockStatus === 'CLOCKED_IN') {
         // Get the current clock event and clock out
         const supabase = createClient();
-        const today = new Date().toISOString().split('T')[0];
+        const today = getSASTDateString();
         const { data: clockEvents } = await supabase
           .from('clock_events')
           .select('id')
