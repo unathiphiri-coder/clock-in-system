@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
-import { getSASTDateString } from '@/lib/timezone';
 
 export default function AgentPage() {
   const [user, setUser] = useState<any>(null);
@@ -44,7 +43,10 @@ export default function AgentPage() {
         }
 
         setUser(authUser);
-        setClockStatus('NOT_CLOCKED_IN');
+
+        const { getCurrentClockStatus } = await import('@/lib/clock-service');
+        const status = await getCurrentClockStatus();
+        setClockStatus(status.is_clocked_in ? 'CLOCKED_IN' : 'NOT_CLOCKED_IN');
         setLoading(false);
       } catch (err) {
         console.error('Auth error:', err);
@@ -59,31 +61,42 @@ export default function AgentPage() {
     setError('');
     
     try {
+      const { clockIn, clockOut, getCurrentClockStatus } = await import('@/lib/clock-service');
+
       if (clockStatus === 'CLOCKED_IN') {
-        // Get the current clock event and clock out
+        // Find the open shift regardless of which day it started on —
+        // a shift that began last night is still open today.
         const supabase = createClient();
-        const today = getSASTDateString();
         const { data: clockEvents } = await supabase
           .from('clock_events')
           .select('id')
           .eq('user_id', user.id)
-          .eq('shift_date', today)
           .is('clock_out_time', null)
+          .order('clock_in_time', { ascending: false })
           .limit(1);
         
         if (clockEvents && clockEvents.length > 0) {
-          const { clockOut } = await import('@/lib/clock-service');
           await clockOut(clockEvents[0].id);
-          setClockStatus('NOT_CLOCKED_IN');
         }
       } else {
-        // Clock in using the proper function
-        const { clockIn } = await import('@/lib/clock-service');
         await clockIn();
-        setClockStatus('CLOCKED_IN');
       }
+
+      // Re-sync with the real database state rather than assuming the
+      // action succeeded exactly as expected.
+      const status = await getCurrentClockStatus();
+      setClockStatus(status.is_clocked_in ? 'CLOCKED_IN' : 'NOT_CLOCKED_IN');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      // Even on failure (e.g. "already clocked in"), resync the displayed
+      // status so the button reflects reality instead of staying stale.
+      try {
+        const { getCurrentClockStatus } = await import('@/lib/clock-service');
+        const status = await getCurrentClockStatus();
+        setClockStatus(status.is_clocked_in ? 'CLOCKED_IN' : 'NOT_CLOCKED_IN');
+      } catch {
+        // ignore secondary failure; the error above is already shown
+      }
     }
     setClocking(false);
   };
