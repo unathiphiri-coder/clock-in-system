@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
+import { getSASTDateString, formatSASTTime, isoToSASTDatetimeLocal, sastDatetimeLocalToISO } from '@/lib/timezone';
 
 interface User {
   id: string;
@@ -38,7 +39,7 @@ export default function AdminPage() {
   const [clockEvents, setClockEvents] = useState<ClockEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getSASTDateString());
   const [showReports, setShowReports] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EditingEvent | null>(null);
   const router = useRouter();
@@ -94,15 +95,27 @@ export default function AdminPage() {
     return agent?.email || 'Unknown';
   }
 
-  function formatTime(isoString: string): string {
-    if (!isoString) return '-';
-    return new Date(isoString).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  function formatTime(isoString?: string | null): string {
+    return formatSASTTime(isoString);
   }
 
   function formatDuration(minutes?: number): string {
     if (!minutes) return 'Ongoing';
     const hours = (minutes / 60).toFixed(2);
     return `${hours} hrs`;
+  }
+
+  // A shift with no clock-out that's been open this long is almost
+  // certainly a forgotten clock-out, not someone genuinely still working.
+  const STALE_SHIFT_HOURS = 12;
+
+  function getOpenShiftHours(clockInIso: string): number {
+    return (Date.now() - new Date(clockInIso).getTime()) / (1000 * 60 * 60);
+  }
+
+  function isStaleShift(event: ClockEvent): boolean {
+    if (event.clock_out_time) return false;
+    return getOpenShiftHours(event.clock_in_time) >= STALE_SHIFT_HOURS;
   }
 
   const handleExportCSV = () => {
@@ -148,8 +161,8 @@ export default function AdminPage() {
   const handleEditClick = (event: ClockEvent) => {
     setEditingEvent({
       id: event.id,
-      clock_in_time: event.clock_in_time ? new Date(event.clock_in_time).toISOString().slice(0, 16) : '',
-      clock_out_time: event.clock_out_time ? new Date(event.clock_out_time).toISOString().slice(0, 16) : '',
+      clock_in_time: isoToSASTDatetimeLocal(event.clock_in_time),
+      clock_out_time: isoToSASTDatetimeLocal(event.clock_out_time),
     });
   };
 
@@ -161,8 +174,8 @@ export default function AdminPage() {
       const { error: updateError } = await supabase
         .from('clock_events')
         .update({
-          clock_in_time: editingEvent.clock_in_time,
-          clock_out_time: editingEvent.clock_out_time || null
+          clock_in_time: sastDatetimeLocalToISO(editingEvent.clock_in_time),
+          clock_out_time: editingEvent.clock_out_time ? sastDatetimeLocalToISO(editingEvent.clock_out_time) : null
         })
         .eq('id', editingEvent.id);
 
@@ -181,6 +194,7 @@ export default function AdminPage() {
   const totalAgents = agents.length;
   const clockedInCount = clockEvents.filter(e => !e.clock_out_time).length;
   const totalHours = clockEvents.reduce((sum, e) => sum + (e.duration_minutes || 0), 0) / 60;
+  const staleShiftCount = clockEvents.filter(isStaleShift).length;
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -219,6 +233,10 @@ export default function AdminPage() {
         <div style={{ background: '#fff3e0', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <div style={{ color: '#e65100', fontSize: '14px', marginBottom: '10px' }}>Total Hours Today</div>
           <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#e65100' }}>{totalHours.toFixed(2)}</div>
+        </div>
+        <div style={{ background: staleShiftCount > 0 ? '#ffebee' : '#f5f5f5', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ color: staleShiftCount > 0 ? '#c62828' : '#666', fontSize: '14px', marginBottom: '10px' }}>⚠️ Forgot to Clock Out</div>
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: staleShiftCount > 0 ? '#c62828' : '#333' }}>{staleShiftCount}</div>
         </div>
       </div>
 
@@ -284,19 +302,38 @@ export default function AdminPage() {
             </tr>
           </thead>
           <tbody>
-            {clockEvents.map((event, index) => (
-              <tr key={event.id} style={{ borderBottom: '1px solid #eee', background: index % 2 === 0 ? '#fafafa' : 'white' }}>
-                <td style={{ padding: '12px' }}>{getAgentName(event.agent_id)}</td>
-                <td style={{ padding: '12px' }}>{formatTime(event.clock_in_time)}</td>
-                <td style={{ padding: '12px' }}>{formatTime(event.clock_out_time)}</td>
-                <td style={{ padding: '12px' }}>{formatDuration(event.duration_minutes)}</td>
-                <td style={{ padding: '12px' }}>
-                  <button onClick={() => handleEditClick(event)} style={{ padding: '6px 12px', background: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                    ✏️ Edit
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {clockEvents.map((event, index) => {
+              const stale = isStaleShift(event);
+              return (
+                <tr
+                  key={event.id}
+                  style={{
+                    borderBottom: '1px solid #eee',
+                    background: stale ? '#ffebee' : (index % 2 === 0 ? '#fafafa' : 'white'),
+                  }}
+                >
+                  <td style={{ padding: '12px' }}>{getAgentName(event.agent_id)}</td>
+                  <td style={{ padding: '12px' }}>{formatTime(event.clock_in_time)}</td>
+                  <td style={{ padding: '12px' }}>
+                    {event.clock_out_time ? (
+                      formatTime(event.clock_out_time)
+                    ) : stale ? (
+                      <span style={{ color: '#c62828', fontWeight: 'bold' }}>
+                        ⚠️ Still clocked in ({getOpenShiftHours(event.clock_in_time).toFixed(1)}h) — likely forgot to clock out
+                      </span>
+                    ) : (
+                      <span style={{ color: '#757575' }}>In progress</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px' }}>{formatDuration(event.duration_minutes)}</td>
+                  <td style={{ padding: '12px' }}>
+                    <button onClick={() => handleEditClick(event)} style={{ padding: '6px 12px', background: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                      ✏️ Edit
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
