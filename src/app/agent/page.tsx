@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
@@ -10,6 +10,11 @@ export default function AgentPage() {
   const [clocking, setClocking] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  // A plain ref, not state: it updates instantly and synchronously, unlike
+  // `clocking` (state), which only takes effect on the next render. That
+  // gap is exactly what let a rapid double-tap fire handleClockToggle
+  // twice before the button had visually disabled itself.
+  const isProcessingRef = useRef(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -57,6 +62,11 @@ export default function AgentPage() {
   }, [router]);
 
   const handleClockToggle = async () => {
+    // Synchronous guard: blocks a second tap that lands before React
+    // has re-rendered the disabled button, which is how the earlier
+    // rapid clock-in/out pair (5 seconds apart) was created.
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
     setClocking(true);
     setError('');
     
@@ -97,8 +107,10 @@ export default function AgentPage() {
       } catch {
         // ignore secondary failure; the error above is already shown
       }
+    } finally {
+      isProcessingRef.current = false;
+      setClocking(false);
     }
-    setClocking(false);
   };
 
   const handleLogout = async () => {
