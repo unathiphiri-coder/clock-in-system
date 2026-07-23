@@ -40,6 +40,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState(getSASTDateString());
+  const [exportRange, setExportRange] = useState<'day' | 'week' | 'month'>('day');
+  const [exporting, setExporting] = useState(false);
   const [showReports, setShowReports] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EditingEvent | null>(null);
   const router = useRouter();
@@ -99,8 +101,8 @@ export default function AdminPage() {
     return formatSASTTime(isoString);
   }
 
-  function formatDuration(minutes?: number): string {
-    if (!minutes) return 'Ongoing';
+  function formatDuration(minutes?: number | null): string {
+    if (minutes === null || minutes === undefined) return 'Ongoing';
     const hours = (minutes / 60).toFixed(2);
     return `${hours} hrs`;
   }
@@ -118,25 +120,81 @@ export default function AdminPage() {
     return getOpenShiftHours(event.clock_in_time) >= STALE_SHIFT_HOURS;
   }
 
-  const handleExportCSV = () => {
-    let csv = 'Agent Email,Agent Name,Clock In,Clock Out,Duration (Hours),Date\n';
-    clockEvents.forEach(event => {
-      const agentEmail = getAgentName(event.agent_id);
-      const agent = agents.find(a => a.id === event.agent_id);
-      const agentName = agent?.full_name || agentEmail;
-      const duration = event.duration_minutes ? (event.duration_minutes / 60).toFixed(2) : 'Ongoing';
-      csv += `${agentEmail},${agentName},${formatTime(event.clock_in_time)},${formatTime(event.clock_out_time)},${duration},${selectedDate}\n`;
-    });
-    
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `attendance-${selectedDate}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+  // Pure calendar-date arithmetic done in UTC terms purely to avoid the
+  // browser's local timezone shifting a date by a day — these are just
+  // YYYY-MM-DD strings, not instants, so UTC here is only a safe scratch
+  // space for the math, not a timezone claim about the data itself.
+  function parseDateOnly(dateStr: string): Date {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d));
+  }
+
+  function formatDateOnly(date: Date): string {
+    return date.toISOString().split('T')[0];
+  }
+
+  function getExportDateRange(dateStr: string, range: 'day' | 'week' | 'month'): { start: string; end: string } {
+    const d = parseDateOnly(dateStr);
+
+    if (range === 'day') {
+      return { start: dateStr, end: dateStr };
+    }
+
+    if (range === 'week') {
+      // Monday–Sunday of the week containing the selected date.
+      const dayOfWeek = d.getUTCDay(); // 0 = Sunday .. 6 = Saturday
+      const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+      const monday = new Date(d);
+      monday.setUTCDate(d.getUTCDate() + diffToMonday);
+      const sunday = new Date(monday);
+      sunday.setUTCDate(monday.getUTCDate() + 6);
+      return { start: formatDateOnly(monday), end: formatDateOnly(sunday) };
+    }
+
+    // Whole calendar month containing the selected date.
+    const firstDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+    const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+    return { start: formatDateOnly(firstDay), end: formatDateOnly(lastDay) };
+  }
+
+  const handleExportCSV = async () => {
+    setExporting(true);
+    setError('');
+    try {
+      const { start, end } = getExportDateRange(selectedDate, exportRange);
+      const supabase = createClient();
+      const { data: events, error: exportError } = await supabase
+        .from('clock_events')
+        .select('*')
+        .gte('shift_date', start)
+        .lte('shift_date', end)
+        .order('shift_date', { ascending: true });
+
+      if (exportError) throw exportError;
+
+      let csv = 'Agent Email,Agent Name,Date,Clock In,Clock Out,Duration (Hours)\n';
+      (events || []).forEach((event: ClockEvent) => {
+        const agentEmail = getAgentName(event.agent_id);
+        const agent = agents.find(a => a.id === event.agent_id);
+        const agentName = agent?.full_name || agentEmail;
+        const duration = event.duration_minutes ? (event.duration_minutes / 60).toFixed(2) : 'Ongoing';
+        csv += `${agentEmail},${agentName},${event.shift_date},${formatTime(event.clock_in_time)},${formatTime(event.clock_out_time)},${duration}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = start === end ? `attendance-${start}.csv` : `attendance-${start}_to_${end}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export CSV');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const getReportsData = () => {
@@ -245,8 +303,16 @@ export default function AdminPage() {
           <label style={{ marginRight: '10px', fontWeight: 'bold' }}>Date: </label>
           <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
         </div>
-        <button onClick={handleExportCSV} style={{ padding: '8px 16px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-          📥 Export to CSV
+        <div>
+          <label style={{ marginRight: '10px', fontWeight: 'bold' }}>Export range: </label>
+          <select value={exportRange} onChange={(e) => setExportRange(e.target.value as 'day' | 'week' | 'month')}>
+            <option value="day">Day</option>
+            <option value="week">Week (Mon–Sun)</option>
+            <option value="month">Month</option>
+          </select>
+        </div>
+        <button onClick={handleExportCSV} disabled={exporting} style={{ padding: '8px 16px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.6 : 1 }}>
+          📥 {exporting ? 'Exporting...' : 'Export to CSV'}
         </button>
         <button onClick={() => setShowReports(!showReports)} style={{ padding: '8px 16px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
           📊 {showReports ? 'Hide' : 'Show'} Reports
